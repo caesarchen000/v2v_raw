@@ -11,4 +11,6 @@
   - others
 
 ## TODO
-- common_used.py
+
+- common_use.py : import all files that are common use
+- computer demo or build a website (at least a beautiful user interface)

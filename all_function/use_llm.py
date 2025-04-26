@@ -5,6 +5,8 @@ from all_import import Llama
 from llama_cpp import Llama
 from pathlib import Path
 
+model_name = "Meta-Llama-3.1-8B-Instruct-Q8_0"  # 升級模型
+cache_dir = "./models"
 
 # Print working directory to help debug if needed
 print("Current working directory:", os.getcwd())
@@ -81,7 +83,7 @@ async def pipeline(question: str) -> None:
 
     # Create a dictionary
     output_json = {
-        "correctness":keyword_list[0],
+        "correctness": keyword_list[0],
         "車牌號碼": keyword_list[1] if len(keyword_list) > 1 else "none",
         "傳達訊息": keyword_list[2] if len(keyword_list) > 2 else "none",
     }

@@ -13,7 +13,7 @@ print("Current working directory:", os.getcwd())
 
 # Load the model
 llama3 = Llama(
-    model_path = "/Users/caesar/Desktop/makentu-v2v/models/Meta-Llama-3.1-8B-Instruct-Q8_0.gguf",
+    model_path = "/Users/caesar/Desktop/makentu-v2v/models/Meta-Llama-3.1-8B-Instruct-Q8_0",
     verbose=False,
     n_gpu_layers=-1,  # -1 = automatically use all GPU layers available
     n_ctx=16384,      # context window size
@@ -95,8 +95,6 @@ async def pipeline(question: str) -> None:
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(output_json, f, ensure_ascii=False, indent=4)
 
-# Example of using the model
-if __name__ == "__main__":
-    example_message = "Hello! Can you introduce yourself?"
-    result = generate_response(llama3, example_message)
-    print("Model Response:", result)
+with open("use_llm_test.txt", "r") as f:
+    lines = f.readlines()
+    pipeline(lines)

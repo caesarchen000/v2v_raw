@@ -12,7 +12,7 @@ print("Current working directory:", os.getcwd())
 
 # Load the model
 llama3 = Llama(
-    model_path = "/home/caesar/Desktop/v2v_raw/models/meta-llama-3.1-8b-instruct-q8_0.gguf",
+    model_path = "/home/caesar/Desktop/v2v_raw/all_function/Meta-Llama-3.1-8B-Instruct-Q8_0.gguf",
     verbose=False,
     n_gpu_layers=-1,  # -1 = automatically use all GPU layers available
     n_ctx=16384,      # context window size
@@ -62,28 +62,28 @@ keyword_extraction_agent = LLMAgent(
                         1. 請從以下對話中取出這段對話來自哪個車牌號碼、目標對象車牌號碼、使用者想要傳達的訊息
                         2. 若你判斷無法從問題中取出這些資訊，則將輸出的"correctness"設為"0"，否則設為"1"
                         3. 若你判斷問題中有多個目標對象車牌號碼、多個來自哪個車牌號碼、使用者想要傳達的訊息，則將輸出的"correctness"設為"0"
-                        4. 整理的結果請將結果整理成list格式
-                        5. 關鍵字中必須要有correctness、目標對象車牌號碼、使用者想要傳達的訊息
-                        6. 關鍵字產出順序需依照correctness、目標對象車牌號碼、使用者想要傳達的訊息產出
-                        7. Jlist格式範例：["0", "來自的車牌號碼","傳給的車牌號碼","想超車"]
+                        4. 請將結果整理成list格式
+                        5. list中必須要有correctness、來自的車牌號碼、目標對象車牌號碼、使用者想要傳達的訊息
+                        6. list產出順序需依照correctness、來自的車牌號碼、目標對象車牌號碼、使用者想要傳達的訊息產出
+                        7. 不要加入過多廢話，請直接給我你整理的結果
                         8. correctness的值為"0"或"1"
-                        9. 車牌號碼的格式為"ABC-1234"或"1234-ABC"，請注意區分
+                        9. list格式範例："0", "來自的車牌號碼","傳給的車牌號碼","想超車" ，且你的輸出只能有這些
                         10. 傳達訊息的部分請用繁體中文回答
-                        11. 若你接收到的文字有不雅的語言請將其過濾掉，並用比較中性的語言來表達
+                        11. 若你接收到的使用者想傳達的訊息中有不雅的語言請將其過濾掉，並用比較中性的語言來表達
                      """,
     verbose=False
 )
 
 json_to_txt_agent = LLMAgent(
-    role_description="你是個專門將給你的資料換句話說的AI，負責將條列式的資料轉換成繁體中文的對話",
+    role_description="你是個專門將給你的資料換句話說的AI，負責將條列式的資料轉換成一句或多句繁體中文的對話",
     task_description="""
-                        1. 請根據以下資料，幫我用繁體中文整理成一段跟駕駛者講的話
-                        2. 整理的結果請將結果整理成txt格式
-                        3. 關鍵字中必須要有(1)訊息來自的車牌號碼(2)使用者想要傳達的訊息
-                        4. 關鍵字產出順序需依照訊息來自的車牌號碼、使用者想要傳達的訊息產出
-                        5. 我會給你：(來自的車牌號碼、傳給的車牌號碼、傳達訊息)
-                        6. 傳達訊息的部分請用繁體中文回答
-                     """,
+                         1. 請根據以下資料，幫我用繁體中文整理成一段跟駕駛者講的話，越簡潔越好，但要像是人在說的話
+                         2. 你的回覆中必須要有(1)訊息來自的車牌號碼(2)使用者想要傳達的訊息
+                         3. 我會給你：(來自的車牌號碼、傳達訊息)
+                         4. 傳達訊息的部分請用繁體中文回答
+                         5. 給你一個輸出範例： "車牌號碼EDF567的車想要超車，你可以打右轉燈靠邊"
+                         6. 注意！！！不要用條列式！！！！
+                      """,
     verbose=False
 )
 
@@ -92,7 +92,7 @@ async def txt_to_json_pipeline(request: str) -> None:
     print(f"Extracted keywords: {extracted_keywords}")
 
     # Convert the extracted keywords into a list (split by 頓號)
-    keyword_list = [kw.strip() for kw in extracted_keywords.split('、') if kw.strip()]
+    keyword_list = [kw.strip() for kw in extracted_keywords.split(',') if kw.strip()]
 
     # Create a dictionary
     txt_to_json = {
@@ -117,10 +117,9 @@ async def json_to_txt_pipeline(json_file_path: str) -> None:
 
     formatted_message = f"""
     1. 來自的車牌號碼：{json_data.get("來自的車牌號碼", "none")}
-    2. 傳給的車牌號碼：{json_data.get("傳給的車牌號碼", "none")}
-    3. 傳達訊息：{json_data.get("傳達訊息", "none")}
+    2. 傳達訊息：{json_data.get("傳達訊息", "none")}
     """
     reconstructed_message = json_to_txt_agent.inference(formatted_message)
     output_path = Path("json_to_txt.txt")
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write(formatted_message)
+        f.write(reconstructed_message)

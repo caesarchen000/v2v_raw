@@ -124,8 +124,3 @@ async def json_to_txt_pipeline(json_file_path: str) -> None:
     output_path = Path("json_to_txt.txt")
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(formatted_message)
-
-
-with open("use_llm_test.txt", "r") as f:
-    lines = f.readlines()
-    txt_to_json_pipeline(lines)

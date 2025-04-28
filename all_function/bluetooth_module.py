@@ -2,6 +2,10 @@ import bluetooth
 import threading
 import json
 
+# storing all Socket for connected devices
+connected_sockets = []
+
+# connecting 
 def connect_bluetooth(target_address: str, port: int = 1):
     """
     Establish a Bluetooth connection and return the socket.
@@ -15,8 +19,10 @@ def connect_bluetooth(target_address: str, port: int = 1):
     sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
     sock.connect((target_address, port))
     print(f"[Bluetooth Connected] Connected to {target_address}")
+    connected_sockets.append(sock)
     return sock
 
+# sending string
 def send_string(sock, message: str):
     """
     Send a string message over Bluetooth.
@@ -31,6 +37,7 @@ def send_string(sock, message: str):
     except Exception as e:
         print(f"[String Sending Error] {e}")
 
+# sending JSON data
 def send_json(sock, json_data: dict):
     """
     Send JSON data over Bluetooth.
@@ -46,57 +53,130 @@ def send_json(sock, json_data: dict):
     except Exception as e:
         print(f"[JSON Sending Error] {e}")
 
-def close_bluetooth(sock):
+# send to specific device
+def send_to_one(sock, message):
     """
-    Close the Bluetooth connection.
+    Send a message to a specific Bluetooth socket (one car).
     
     Args:
-        sock (BluetoothSocket): The Bluetooth socket to close.
+        sock (BluetoothSocket): The connected Bluetooth socket.
+        message (str or dict): The message to send (string or JSON dictionary).
     """
     try:
-        sock.close()
-        print("[Bluetooth Connection Closed]")
+        if isinstance(message, dict):  # If the message is a dictionary (JSON)
+            send_json(sock, message)
+        elif isinstance(message, str):  # If the message is a string
+            send_string(sock, message)
+        else:
+            print("[Error] Invalid message type. Please send a string or dictionary.")
     except Exception as e:
-        print(f"[Closing Error] {e}")
+        print(f"[Error sending to one] {e}")
 
-def listen_bluetooth(callback, port: int = 1, buffer_size: int = 4096):
+# send to all devices
+def broadcast_message(message):
     """
-    Start a background Bluetooth listener. Received data will be passed to the callback function.
+    Send a message to all connected Bluetooth devices (cars).
     
     Args:
-        callback (function): Function to call with the received data (str or dict).
-        port (int): Port to listen on (default is 1).
-        buffer_size (int): Buffer size for receiving data (default is 4096 bytes).
+        message (str or dict): The message to send (string or JSON dictionary).
+    """
+    if isinstance(message, str):
+        for sock in connected_sockets:
+            send_string(sock, message)
+    elif isinstance(message, dict):
+        for sock in connected_sockets:
+            send_json(sock, message)
+    else:
+        print("[Error] Invalid message type. Please send a string or dictionary.")
+
+# scan and connecting devices around
+def scan_and_connect():
+    """
+    Scan for nearby Bluetooth devices and connect to the first available one.
+    """
+    print("[Scanning] Scanning for nearby Bluetooth devices...")
+    nearby_devices = bluetooth.discover_devices(lookup_names=True, lookup_oui=True, lookup_ucs2=True)
+    if not nearby_devices:
+        print("[Error] No devices found.")
+        return
+
+    print("[Found Devices] Found the following devices:")
+    for addr, name in nearby_devices:
+        print(f"  {name} - {addr}")
+
+    target_address = input("Please enter the Bluetooth address of the vehicle you want to connect to:").strip()
+    if target_address:
+        try:
+            connect_bluetooth(target_address)
+            print(f"[Connected] Successfully connected to {target_address}")
+        except Exception as e:
+            print(f"[Connection Error] {e}")
+    else:
+        print("[Error] Invalid address entered.")
+
+# turn off connection
+def close_all_connections():
+    """
+    Close all Bluetooth connections.
+    """
+    for sock in connected_sockets:
+        sock.close()
+    print("[System] All connections closed.")
+
+# start waiting for connection
+def start_server():
+    """
+    Start a Bluetooth server to accept incoming connections.
     """
     def listen():
         server_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-        server_sock.bind(("", port))
+        server_sock.bind(("", 1))  # Port 1 (default)
         server_sock.listen(1)
-        print(f"[Bluetooth Listening] Waiting on port {port}...")
+        print("[Server Started] Listening on port 1...")
 
         while True:
             try:
                 client_sock, address = server_sock.accept()
                 print(f"[Incoming Connection] From {address}")
-
-                data = client_sock.recv(buffer_size)
-                if data:
-                    try:
-                        decoded = data.decode("utf-8")
-                        try:
-                            json_data = json.loads(decoded)
-                            print(f"[Received JSON] {json_data}")
-                            callback(json_data)
-                        except json.JSONDecodeError:
-                            print(f"[Received String] {decoded}")
-                            callback(decoded)
-                    except UnicodeDecodeError as e:
-                        print(f"[Decoding Error] {e}")
-                client_sock.close()
-
+                connected_sockets.append(client_sock)
             except Exception as e:
-                print(f"[Receiving Error] {e}")
+                print(f"[Server Error] {e}")
 
     thread = threading.Thread(target=listen, daemon=True)
     thread.start()
-    print("[Background Listening Started]")
+    print("[Server Listening] Server started and waiting for connections...")
+
+# main(test)
+if __name__ == "__main__":
+    start_server()
+
+    while True:
+        print("\n---")
+        print("[Menu] Command:")
+        print(" 1. scan and connecting vehicles around")
+        print(" 2. send message to all connected vehicles")
+        print(" 3. send message to specific vehicle")
+        print(" 4. end")
+        choice = input("choice: ").strip()
+
+        if choice == "1":
+            scan_and_connect()
+        elif choice == "2":
+            msg = input("public message:")
+            broadcast_message(msg)
+        elif choice == "3":
+            msg = input("private message:")
+            print("[Available Connections] all connected vehicles:")
+            for idx, sock in enumerate(connected_sockets):
+                print(f"{idx + 1}. {sock.getpeername()[0]}")
+            target_idx = int(input("select: ").strip()) - 1
+            if 0 <= target_idx < len(connected_sockets):
+                send_to_one(connected_sockets[target_idx], msg)
+            else:
+                print("[selecting error] invalid choice")
+        elif choice == "4":
+            print("[System] end")
+            close_all_connections()
+            break
+        else:
+            print("[input error] please enter 1/2/3/4")

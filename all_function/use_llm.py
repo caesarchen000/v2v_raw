@@ -1,19 +1,18 @@
 import os
 import all_import
 import json
+import asyncio
 from all_import import Llama
 from llama_cpp import Llama
 from pathlib import Path
 
-model_name = "Meta-Llama-3.1-8B-Instruct-Q8_0"  # 升級模型
-cache_dir = "./models"
 
 # Print working directory to help debug if needed
 print("Current working directory:", os.getcwd())
 
 # Load the model
 llama3 = Llama(
-    model_path = "/Users/caesar/Desktop/makentu-v2v/models/Meta-Llama-3.1-8B-Instruct-Q8_0",
+    model_path = "/home/caesar/Desktop/v2v_raw/models/meta-llama-3.1-8b-instruct-q8_0.gguf",
     verbose=False,
     n_gpu_layers=-1,  # -1 = automatically use all GPU layers available
     n_ctx=16384,      # context window size
@@ -60,41 +59,73 @@ class LLMAgent():
 keyword_extraction_agent = LLMAgent(
     role_description="你是個專門提取關鍵字的AI，負責從問題中找出使用者想要對話的目標對象車牌號碼、使用者想要傳達的訊息，並將這些資訊整理成.json格式",
     task_description="""
-                        1. 請從以下問題中取出目標對象車牌號碼、使用者想要傳達的訊息
+                        1. 請從以下對話中取出這段對話來自哪個車牌號碼、目標對象車牌號碼、使用者想要傳達的訊息
                         2. 若你判斷無法從問題中取出這些資訊，則將輸出的"correctness"設為"0"，否則設為"1"
-                        3. 若你判斷問題中有多個目標對象車牌號碼、使用者想要傳達的訊息，則將輸出的"correctness"設為"0"
+                        3. 若你判斷問題中有多個目標對象車牌號碼、多個來自哪個車牌號碼、使用者想要傳達的訊息，則將輸出的"correctness"設為"0"
                         4. 整理的結果請將結果整理成list格式
                         5. 關鍵字中必須要有correctness、目標對象車牌號碼、使用者想要傳達的訊息
-                        6. 關鍵字產出順序需依照correcness、目標對象車牌號碼、使用者想要傳達的訊息產出
-                        7. Jlist格式範例：["0", "車牌號碼","想超車"]
+                        6. 關鍵字產出順序需依照correctness、目標對象車牌號碼、使用者想要傳達的訊息產出
+                        7. Jlist格式範例：["0", "來自的車牌號碼","傳給的車牌號碼","想超車"]
                         8. correctness的值為"0"或"1"
                         9. 車牌號碼的格式為"ABC-1234"或"1234-ABC"，請注意區分
                         10. 傳達訊息的部分請用繁體中文回答
+                        11. 若你接收到的文字有不雅的語言請將其過濾掉，並用比較中性的語言來表達
                      """,
     verbose=False
 )
 
-async def pipeline(question: str) -> None:
-    extracted_keywords = keyword_extraction_agent.inference(question)
+json_to_txt_agent = LLMAgent(
+    role_description="你是個專門將給你的資料換句話說的AI，負責將條列式的資料轉換成繁體中文的對話",
+    task_description="""
+                        1. 請根據以下資料，幫我用繁體中文整理成一段跟駕駛者講的話
+                        2. 整理的結果請將結果整理成txt格式
+                        3. 關鍵字中必須要有(1)訊息來自的車牌號碼(2)使用者想要傳達的訊息
+                        4. 關鍵字產出順序需依照訊息來自的車牌號碼、使用者想要傳達的訊息產出
+                        5. 我會給你：(來自的車牌號碼、傳給的車牌號碼、傳達訊息)
+                        6. 傳達訊息的部分請用繁體中文回答
+                     """,
+    verbose=False
+)
+
+async def txt_to_json_pipeline(request: str) -> None:
+    extracted_keywords = keyword_extraction_agent.inference(request)
     print(f"Extracted keywords: {extracted_keywords}")
 
     # Convert the extracted keywords into a list (split by 頓號)
     keyword_list = [kw.strip() for kw in extracted_keywords.split('、') if kw.strip()]
 
     # Create a dictionary
-    output_json = {
+    txt_to_json = {
         "correctness": keyword_list[0],
-        "車牌號碼": keyword_list[1] if len(keyword_list) > 1 else "none",
-        "傳達訊息": keyword_list[2] if len(keyword_list) > 2 else "none",
+        "來自的車牌號碼": keyword_list[1] if len(keyword_list) > 1 else "none",
+        "傳給的車牌號碼": keyword_list[2] if len(keyword_list) > 2 else "none",
+        "傳達訊息": keyword_list[3] if len(keyword_list) > 3 else "none",
     }
 
     # Define output path
-    output_path = Path("output_keywords.json")
+    output_path = Path("txt_to_json.json")
 
     # Save to JSON file
     with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(output_json, f, ensure_ascii=False, indent=4)
+        json.dump(txt_to_json, f, ensure_ascii=False, indent=4)
+
+
+async def json_to_txt_pipeline(json_file_path: str) -> None:
+
+    with open(json_file_path, "r", encoding="utf-8") as f:
+        json_data = json.load(f)
+
+    formatted_message = f"""
+    1. 來自的車牌號碼：{json_data.get("來自的車牌號碼", "none")}
+    2. 傳給的車牌號碼：{json_data.get("傳給的車牌號碼", "none")}
+    3. 傳達訊息：{json_data.get("傳達訊息", "none")}
+    """
+    reconstructed_message = json_to_txt_agent.inference(formatted_message)
+    output_path = Path("json_to_txt.txt")
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(formatted_message)
+
 
 with open("use_llm_test.txt", "r") as f:
     lines = f.readlines()
-    pipeline(lines)
+    txt_to_json_pipeline(lines)

@@ -1,9 +1,5 @@
 import pyttsx3
-
-# 注意事項：
-# 1. 輸入檔案 test.txt 必須以 UTF-8 編碼儲存，否則中文可能無法正確顯示。
-# 2. 若文字內容很長，建議分段處理，避免記憶體消耗過大。
-# 3. 語速 (rate) 與音量 (volume) 可依需求調整。
+# 語速 (rate) 與音量 (volume) 可依需求調整。
 
 # 初始化語音引擎
 engine = pyttsx3.init()

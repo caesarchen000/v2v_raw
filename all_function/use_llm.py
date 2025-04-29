@@ -108,7 +108,7 @@ async def txt_to_json_pipeline(request: str) -> None:
         for kw in extracted_keywords.split(',') if kw.strip()
     ]
 
-    if len(keyword_list[2]) > 8:
+    if len(keyword_list[2])>8 or len(keyword_list[1]) > 8:
         keyword_list[0]="0"
 
     # Create a dictionary

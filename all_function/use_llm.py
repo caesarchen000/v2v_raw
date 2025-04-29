@@ -68,7 +68,7 @@ keyword_extraction_agent = LLMAgent(
                         7. 不要加入過多廢話，請直接給我你整理的結果
                         8. correctness的值為"0"或"1"
                         9. list格式範例："0", "來自的車牌號碼","傳給的車牌號碼","想超車" ，且你的輸出只能有這些
-                        10. 傳達訊息的部分請用繁體中文回答
+                        10. 傳達訊息的部分請用繁體中文回答，且你的回覆中部的出現任何括號
                         11. 若你接收到的使用者想傳達的訊息中有不雅的語言請將其過濾掉，並用比較中性的語言來表達
                      """,
     verbose=False
@@ -83,6 +83,17 @@ json_to_txt_agent = LLMAgent(
                          4. 傳達訊息的部分請用繁體中文回答
                          5. 給你一個輸出範例： "車牌號碼EDF567的車想要超車，你可以打右轉燈靠邊"
                          6. 注意！！！不要用條列式！！！！
+                      """,
+    verbose=False
+)
+
+confirm_agent = LLMAgent(
+    role_description="你是個專門確認資料的AI，負責確認使用者給你的資料是否正確",
+    task_description="""
+                        1. 請根據你得到的資料判斷這個為正確的意思或不正確的意思
+                        2. 如果你得到的資訊為正確的意思，回覆 1
+                        3. 如果你得到的資訊為不正確的意思，回覆 0
+                        4. 你的回答只能是0 或 1，不得有其他贅字
                       """,
     verbose=False
 )
@@ -123,3 +134,7 @@ async def json_to_txt_pipeline(json_file_path: str) -> None:
     output_path = Path("json_to_txt.txt")
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(reconstructed_message)
+
+async def confirm_pipeline(confirm_msg: str) -> str:
+    confrim_result= confirm_agent.inference(confirm_msg)
+    return confrim_result

@@ -61,7 +61,7 @@ keyword_extraction_agent = LLMAgent(
     task_description="""
                         1. 請從以下對話中取出這段對話來自哪個車牌號碼、目標對象車牌號碼、使用者想要傳達的訊息
                         2. 若你判斷無法從問題中取出這些資訊，則將輸出的"correctness"設為"0"，否則設為"1"
-                        3. 若你判斷問題中有多個目標對象車牌號碼、多個來自哪個車牌號碼、使用者想要傳達的訊息，則將輸出的"correctness"設為"0"
+                        3. 若你判斷問題中有多個目標對象車牌號碼（車牌號碼總長大於等於8個數字＋英文）、多個來自哪個車牌號碼、使用者想要傳達的訊息，則將輸出的"correctness"設為"0"
                         4. 請將結果整理成list格式
                         5. list中必須要有correctness、來自的車牌號碼、目標對象車牌號碼、使用者想要傳達的訊息
                         6. list產出順序需依照correctness、來自的車牌號碼、目標對象車牌號碼、使用者想要傳達的訊息產出
@@ -103,7 +103,13 @@ async def txt_to_json_pipeline(request: str) -> None:
     print(f"Extracted keywords: {extracted_keywords}")
 
     # Convert the extracted keywords into a list (split by 頓號)
-    keyword_list = [kw.strip() for kw in extracted_keywords.split(',') if kw.strip()]
+    keyword_list = [
+        kw.strip().strip("[]'\"")  # remove spaces, brackets, apostrophes, and quotes
+        for kw in extracted_keywords.split(',') if kw.strip()
+    ]
+
+    if len(keyword_list[2]) > 8:
+        keyword_list[0]="0"
 
     # Create a dictionary
     txt_to_json = {

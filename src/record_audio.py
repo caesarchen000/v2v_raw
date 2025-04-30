@@ -46,6 +46,3 @@ def record_audio(
     input("按 Enter 開始錄音：")
     record_until_enter()
 
-if __name__ == "__main__":
-    # 保留原始調用方式
-    record_audio()
